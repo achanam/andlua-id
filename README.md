@@ -48,4 +48,4 @@ Built on the work of baiyuncode ([AndLua+](https://github.com/baiyuncode/andlua)
 
 Released under the MIT License, see [LICENSE](LICENSE).
 
-Made by Anam (Ach Anam): [achanam.com](https://achanam.com) · [@_achanam](https://instagram.com/_achanam) · [GitHub](https://github.com/achanam)
+Made by Anam (Ach Anam)
