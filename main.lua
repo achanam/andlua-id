@@ -743,6 +743,27 @@ frame.setOnApplyWindowInsetsListener(View.OnApplyWindowInsetsListener({
 activity.setContentView(frame)
 refresh()
 
+---- update check (once per launch)
+local function updateDialog(tag, url)
+  local dlg
+  local v = U.col()
+  v.setPadding(T.dp(20), T.dp(20), T.dp(20), T.dp(16))
+  v.addView(U.text("Versi baru tersedia", 18, "ink", true))
+  v.addView(U.text("AndLua ID " .. tag .. " sudah rilis di GitHub. Download sekarang?", 14, "inkSubtle"),
+    U.lp(-1, -2, 0, 8, 0, 16))
+  local brow = U.row()
+  brow.setGravity(Gravity.RIGHT)
+  brow.addView(U.button("Nanti", "secondary", function() dlg.dismiss() end))
+  brow.addView(U.button("Update", "primary", function()
+    dlg.dismiss()
+    openUrl(url)
+  end), U.lp(-2, -2, 8, 0, 0, 0))
+  v.addView(brow, U.lp(-1, -2))
+  dlg = U.dialog(v, true)  -- locked: only Nanti / Update close it
+  pcall(function() dlg.getWindow().setLayout(DLG_W, -2) end)
+end
+pcall(function() require("updater").check(updateDialog) end)
+
 function onResume()
   refresh()
 end

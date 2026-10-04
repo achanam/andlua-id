@@ -4,6 +4,8 @@ import "android.widget.*"
 import "android.view.*"
 import "java.io.File"
 import "android.text.TextUtils"
+import "android.os.Handler"
+import "android.os.Looper"
 local T  = require "theme"
 local U  = require "ui"
 local P  = require "projects"
@@ -81,6 +83,35 @@ top.addView(U.iconButton("redo", function() editor.redo() end), U.lp(T.dp(40), T
 local moreBtn = U.iconButton("more", nil)
 top.addView(moreBtn, U.lp(T.dp(40), T.dp(40)))
 
+-- Build / Log buttons (icon + label) above the file tabs
+local function actionButton(label, icon, kind, fn)
+  local primary = kind == "primary"
+  local clr = primary and "onPrimary" or "ink"
+  local box = U.row()
+  box.setGravity(Gravity.CENTER_VERTICAL)
+  box.setPadding(T.dp(12), T.dp(8), T.dp(14), T.dp(8))
+  if primary then
+    box.setBackground(U.rect("primary", T.r.md))
+  else
+    box.setBackground(U.rect("surface2", T.r.md, "hairlineStrong"))
+  end
+  box.addView(U.decorative(U.icon(icon, clr)), U.lp(T.dp(18), T.dp(18), 0, 0, 8, 0))
+  local t = U.text(label, 14, clr, true)
+  box.addView(t)
+  U.describe(box, label)
+  if fn then box.onClick = fn end
+  return box
+end
+
+local buildBtn = actionButton("Build", "build", "primary")  -- handler attached below
+local buildRow = U.row()
+buildRow.setPadding(T.dp(12), 0, T.dp(12), T.dp(8))
+buildRow.addView(buildBtn, U.lp(-2, -2))
+buildRow.addView(actionButton("Log", "log", "secondary", function()
+  activity.newActivity("logview", { projPath })
+end), U.lp(-2, -2, 8, 0, 0, 0))
+root.addView(buildRow, U.lp(-1, -2))
+
 local tabsHs = HorizontalScrollView(activity)
 tabsHs.setHorizontalScrollBarEnabled(false)
 local tabs = U.row()
@@ -88,20 +119,30 @@ tabs.setPadding(T.dp(12), 0, T.dp(12), T.dp(8))
 tabsHs.addView(tabs)
 root.addView(tabsHs, U.lp(-1, -2))
 
+-- red bar with the first syntax error (tap = jump to the line)
+local errBar = U.text("", 13, "onPrimary", true)
+errBar.setSingleLine(true)
+errBar.setEllipsize(TextUtils.TruncateAt.END)
+errBar.setPadding(T.dp(12), T.dp(8), T.dp(12), T.dp(8))
+errBar.setBackground(U.rect("danger", T.r.md))
+errBar.setVisibility(8)
+root.addView(errBar, U.lp(-1, -2, 12, 0, 12, 8))
+
+-- editor fills the rest of the screen; the status line floats over its bottom edge
+local body = FrameLayout(activity)
+root.addView(body, LinearLayout.LayoutParams(-1, 0, 1))
+
 editor = LuaEditor(activity)
-root.addView(editor, LinearLayout.LayoutParams(-1, 0, 1))
+body.addView(editor, FrameLayout.LayoutParams(-1, -1))
 
 local status = U.text("", 12, "inkSubtle")
 status.setPadding(T.dp(12), T.dp(6), T.dp(12), T.dp(6))
 status.setSingleLine(true)
-root.addView(status, U.lp(-1, -2))
-
-local sh = HorizontalScrollView(activity)
-sh.setHorizontalScrollBarEnabled(false)
-local sym = U.row()
-sym.setPadding(T.dp(8), T.dp(4), T.dp(8), T.dp(8))
-sh.addView(sym)
-root.addView(sh, U.lp(-1, -2))
+status.setBackgroundColor(T.c("surface1"))
+status.setVisibility(8)  -- GONE until there is a message
+local slp = FrameLayout.LayoutParams(-1, -2)
+slp.gravity = Gravity.BOTTOM
+body.addView(status, slp)
 
 -- editor colors (method names vary between versions; safe if missing)
 local function tryset(m, v)
@@ -120,6 +161,7 @@ tryset("setPanelTextColor", T.c("ink"))
 ---- actions
 local function setStatus(msg, color)
   status.setText(msg)
+  status.setVisibility(msg == "" and 8 or 0)
   status.setTextColor(T.c(color or "inkSubtle"))
 end
 
@@ -148,6 +190,43 @@ local function checkNow(silent)
   return false
 end
 
+local errLine
+local lastTxt, changedAt, pending = nil, 0, false
+
+local function updateErrBar()
+  errLine = nil
+  errBar.setVisibility(8)
+  if not curFile or not (curFile:find("%.lua$") or curFile:find("%.aly$")) then return end
+  local ok, line, msg = SC.check(editor.getText().toString(), curFile)
+  if ok then return end
+  errLine = line
+  errBar.setText("Baris " .. line .. ": " .. msg)
+  errBar.setVisibility(0)
+end
+
+errBar.onClick = function()
+  if errLine then editor.gotoLine(errLine) end
+end
+
+-- poll for edits; check once the text has been idle for a moment
+local handler = Handler(Looper.getMainLooper())
+local ticker
+ticker = Runnable({ run = function()
+  pcall(function()
+    local txt = editor.getText().toString()
+    local now = luajava.bindClass("java.lang.System").currentTimeMillis()
+    if txt ~= lastTxt then
+      lastTxt = txt
+      changedAt = now
+      pending = true
+    elseif pending and now - changedAt >= 250 then
+      pending = false
+      updateErrBar()
+    end
+  end)
+  handler.postDelayed(ticker, 120)
+end })
+
 function openFile(path)
   if curFile then save() end
   curFile = path
@@ -156,6 +235,9 @@ function openFile(path)
   sub.setText("../project/" .. (projPath:match("([^/]+)/?$") or ""))
   setStatus("", "inkSubtle")
   buildTabs()
+  lastTxt = editor.getText().toString()
+  pending = false
+  updateErrBar()
 end
 
 local function newFileDialog()
@@ -243,44 +325,26 @@ run = function()
   activity.newActivity(projPath .. "main.lua")
 end
 
----- overflow menu & symbols
+---- overflow menu
+buildBtn.onClick = function()
+  save()
+  local ok, bin = pcall(require, "Builder")
+  if ok and type(bin) == "function" then
+    bin(projPath)
+  else
+    Toast.makeText(activity, "Builder gagal dimuat: " .. tostring(bin), Toast.LENGTH_LONG).show()
+  end
+end
+
 moreBtn.onClick = function(v)
   U.popup(moreBtn, {
-    { "Build", function()
-        save()
-        local ok, bin = pcall(require, "Builder")
-        if ok and type(bin) == "function" then
-          bin(projPath)
-        else
-          Toast.makeText(activity, "Builder gagal dimuat: " .. tostring(bin), Toast.LENGTH_LONG).show()
-        end
-      end, icon = "build" },
     { "Berkas baru", newFileDialog, icon = "plus" },
     { "Simpan", save, icon = "save" },
     { "Format", function() editor.format() end, icon = "format" },
     { "Cek", function() checkNow(false) end, icon = "check" },
     { "Cek semua", checkAll, icon = "checkall" },
     { "Cari / ke baris", findDialog, icon = "search" },
-    { "Log", function() activity.newActivity("logview", { projPath }) end, icon = "log" },
   })
-end
-
-local pairs_ = { ["("] = ")", ["["] = "]", ["{"] = "}", ['"'] = '"', ["'"] = "'" }
-local symbols = { "Tab", "(", ")", "[", "]", "{", "}", '"', "'", "=", ":", ".", ",", ";",
-  "_", "+", "-", "*", "/", "\\", "|", "%", "#", "$", "?", "<", ">", "~", "@" }
-for _, s in ipairs(symbols) do
-  local b = U.button(s, "secondary", function()
-    if s == "Tab" then
-      editor.paste("  ")
-    elseif pairs_[s] then
-      editor.paste(s .. pairs_[s])
-      editor.setSelection(editor.getSelectionEnd() - 1)
-    else
-      editor.paste(s)
-    end
-  end)
-  b.setPadding(T.dp(12), T.dp(8), T.dp(12), T.dp(8))
-  sym.addView(b, U.lp(-2, -2, 0, 0, 6, 0))
 end
 
 ---- start
@@ -293,6 +357,12 @@ if not File(first).exists() then
 end
 if first then openFile(first) else setStatus("Proyek kosong", "inkSubtle") end
 
+handler.postDelayed(ticker, 120)
+
 function onPause()
   save()
+end
+
+function onDestroy()
+  handler.removeCallbacks(ticker)
 end

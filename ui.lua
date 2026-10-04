@@ -399,10 +399,12 @@ function U.popup(anchor, items, width)
   return pw
 end
 
-function U.dialog(view)
+function U.dialog(view, locked)
   local b = AlertDialog.Builder(activity)
   b.setView(view)
+  if locked then b.setCancelable(false) end
   local d = b.create()
+  if locked then d.setCanceledOnTouchOutside(false) end
   d.show()
   d.getWindow().setBackgroundDrawable(U.rect("surface1", T.r.xl, "hairline"))
   return d
