@@ -1,0 +1,78 @@
+--name
+appname="AndLua ID"
+--version
+appver="1.3-beta1"
+--version code
+appcode="10200"
+--SDK
+appsdk="21"
+--package
+packagename="com.andlua_id"
+--debug
+debugmode=false
+--permissions (do not remove entries: this is the manifest template for built apps)
+user_permission={
+  "ACCESS_COARSE_LOCATION",
+  "ACCESS_FINE_LOCATION",
+  "ACCESS_NETWORK_STATE",
+  "ACCESS_WIFI_STATE",
+  "ANSWER_PHONE_CALLS",
+  "BATTERY_STATS",
+  "BIND_ACCESSIBILITY_SERVICE",
+  "BLUETOOTH",
+  "BLUETOOTH_ADMIN",
+  "CALL_PHONE",
+  "CAMERA",
+  "CHANGE_NETWORK_STATE",
+  "CHANGE_WIFI_STATE",
+  "CLEAR_APP_CACHE",
+  "DOWNLOAD_WITHOUT_NOTIFICATION",
+  "FOREGROUND_SERVICE",
+  "GET_PACKAGE_SIZE",
+  "INSTALL_SHORTCUT",
+  "INTERNET",
+  "KILL_BACKGROUND_PROCESSES",
+  "READ_CALL_LOG",
+  "READ_CONTACTS",
+  "READ_EXTERNAL_STORAGE",
+  "READ_FRAME_BUFFER",
+  "READ_LOGS",
+  "READ_PHONE_STATE",
+  "READ_SMS",
+  "RECORD_AUDIO",
+  "REQUEST_INSTALL_PACKAGES",
+  "SEND_SMS",
+  "SET_WALLPAPER",
+  "SYSTEM_ALERT_WINDOW",
+  "VIBRATE",
+  "WAKE_LOCK",
+  "WRITE_CALL_LOG",
+  "WRITE_CONTACTS",
+  "WRITE_EXTERNAL_STORAGE",
+  "WRITE_SETTINGS",
+  "WRITE_SMS",
+}
+--skip compile: templates must stay raw text (they contain $AppName$ placeholders)
+skip_compilation={
+  "Template/Default/init.lua",
+  "Template/Default/layout.aly",
+  "Template/Default/main.lua",
+  "Template/DrawerLayout/content.aly",
+  "Template/DrawerLayout/drawer.aly",
+  "Template/DrawerLayout/init.lua",
+  "Template/DrawerLayout/items.aly",
+  "Template/DrawerLayout/main.lua",
+  "Template/LuaJava/init.lua",
+  "Template/LuaJava/layout.aly",
+  "Template/LuaJava/main.lua",
+  "Template/TabBar/init.lua",
+  "Template/TabBar/layout.aly",
+  "Template/TabBar/main.lua",
+  "Template/TabBar/page1.aly",
+  "Template/TabBar/page2.aly",
+  "Template/TabBar/page3.aly",
+  "Template/TabBar/page4.aly",
+  "Template/TitleBar/init.lua",
+  "Template/TitleBar/layout.aly",
+  "Template/TitleBar/main.lua",
+}

@@ -1,0 +1,7 @@
+# Android compile cache (auto-generated when a project runs)
+libs/oat/
+
+# output and logs
+bin/
+log
+error
