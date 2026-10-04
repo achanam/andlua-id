@@ -1,7 +1,7 @@
 --name
 appname="AndLua ID"
 --version
-appver="2.01"
+appver="2.05"
 --version code
 appcode="10200"
 --SDK

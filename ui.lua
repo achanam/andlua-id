@@ -13,7 +13,7 @@ local U = {}
 
 function U.rect(fill, radius, stroke)
   local d = GradientDrawable()
-  d.setColor(T.c(fill))
+  d.setColor(fill and T.c(fill) or 0)  -- nil = transparent
   d.setCornerRadius(T.dp(radius or 0))
   if stroke then d.setStroke(T.dp(1), T.c(stroke)) end
   return d
@@ -31,7 +31,7 @@ function U.text(str, size, color, bold)
   v.setText(str)
   v.setTextSize(size or 14)
   v.setTextColor(T.c(color or "ink"))
-  if bold then v.getPaint().setFakeBoldText(true) end
+  T.setFont(v, bold and "semibold" or "regular")
   return v
 end
 
@@ -60,7 +60,7 @@ function U.button(label, kind, fn)
   v.setText(label)
   v.setTextSize(14)
   v.setGravity(Gravity.CENTER)
-  v.getPaint().setFakeBoldText(true)
+  T.setFont(v, "semibold")
   v.setPadding(T.dp(14), T.dp(10), T.dp(14), T.dp(10))
   if kind == "primary" then
     v.setTextColor(T.c("onPrimary"))
@@ -82,6 +82,7 @@ function U.input(hint, value)
   v.setText(value or "")
   v.setSingleLine(true)
   v.setTextSize(15)
+  T.setFont(v, "regular")
   v.setTextColor(T.c("ink"))
   v.setHintTextColor(T.c("inkTertiary"))
   v.setBackground(U.rect("surface2", T.r.md, "hairlineStrong"))
@@ -339,10 +340,11 @@ function U.icon(kind, color)
   return t
 end
 
-function U.iconButton(kind, fn, color, label)
+function U.iconButton(kind, fn, color, label, size)
   local box = U.col()
   box.setGravity(Gravity.CENTER)
-  box.addView(U.decorative(U.icon(kind, color or "ink")), U.lp(T.dp(22), T.dp(22)))
+  local S = T.dp(size or 22)
+  box.addView(U.decorative(U.icon(kind, color or "ink")), U.lp(S, S))
   U.describe(box, label or LABEL[kind] or kind)
   if fn then box.onClick = fn end
   return box
@@ -399,14 +401,28 @@ function U.popup(anchor, items, width)
   return pw
 end
 
-function U.dialog(view, locked)
+function U.dialog(view, locked, bare, dim)
   local b = AlertDialog.Builder(activity)
   b.setView(view)
   if locked then b.setCancelable(false) end
   local d = b.create()
   if locked then d.setCanceledOnTouchOutside(false) end
   d.show()
-  d.getWindow().setBackgroundDrawable(U.rect("surface1", T.r.xl, "hairline"))
+  if dim then pcall(function() d.getWindow().setDimAmount(dim) end) end
+  if bare then
+    -- no frame: the view itself is the card (transparent window, no inner padding)
+    d.getWindow().setBackgroundDrawable(U.rect(nil, 0))
+    pcall(function()
+      local p = view.getParent()
+      while p do
+        pcall(function() p.setPadding(0, 0, 0, 0) end)
+        pcall(function() p.getLayoutParams().setMargins(0, 0, 0, 0) end)
+        p = p.getParent()
+      end
+    end)
+  else
+    d.getWindow().setBackgroundDrawable(U.rect("surface1", T.r.xl, "hairline"))
+  end
   return d
 end
 

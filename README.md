@@ -18,10 +18,11 @@ So I kept the part I actually care about (projects, editor, builder), translated
 ## What's in it
 
 - Project list, with five templates (Default, DrawerLayout, LuaJava, TabBar, TitleBar)
-- Code editor with file tabs, syntax check, find / go to line, and a symbol bar
+- Code editor with file tabs, live syntax check (red bar), find / go to line, and format
 - APK builder, with the build logic ported from AndLua+ as is
 - Per-project settings: app name, package, version, icon, permissions
 - Log viewer (logcat with filters)
+- Update check against GitHub releases on launch
 
 ## What's not
 
@@ -29,36 +30,17 @@ Everything tied to the AndLua+ server: login, chat, forum, profile, notification
 
 ## Running it
 
-This isn't packaged as an APK yet. Right now I run it like this:
+Grab the APK from the [Releases](https://github.com/achanam/andlua-id/releases/latest) page and install it. Your projects live in `/sdcard/AndLua_ID/project`.
 
-1. Copy the `AndLua_ID` folder to `/sdcard/AndLua/project/`
-2. Open it from AndLua+ and run it
-3. Your own projects live in `/sdcard/AndLua_ID/project`
+To run the source instead, copy this folder to `/sdcard/AndLua/project/` and open it from AndLua+.
 
 The builder uses the app's own APK as the frame for whatever you build, so it needs the Java classes that AndLua+ ships with (those are in `libs/` and `res/`).
+
+One thing to know if you edit `init.lua`: the permission list there is the manifest template for every app the builder produces. Don't remove entries from it.
 
 ## Status
 
 I test this by hand on my own phone. There are no automated tests, and some parts have only been looked at once. Expect rough edges. If something breaks, open an issue with a screenshot, that's how I find most bugs.
-
-## Layout
-
-```
-init.lua        app info and the permission list
-config.lua      paths and builder settings
-main.lua        project list screen
-editor.lua      code editor
-logview.lua     log viewer
-Builder.lua     APK builder
-projects.lua    project handling
-ui.lua          UI components
-theme.lua       colors and spacing
-credits.lua     developer info, credits, About text
-Template/       project templates
-libs/ res/ keys/  files from AndLua+ that the builder needs
-```
-
-One thing to know if you edit `init.lua`: the permission list there is the manifest template for every app the builder produces. Don't remove entries from it.
 
 ## Credits and license
 

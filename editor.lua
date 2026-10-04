@@ -134,6 +134,7 @@ root.addView(body, LinearLayout.LayoutParams(-1, 0, 1))
 
 editor = LuaEditor(activity)
 body.addView(editor, FrameLayout.LayoutParams(-1, -1))
+pcall(function() editor.setTypeface(T.font("mono")) end)
 
 local status = U.text("", 12, "inkSubtle")
 status.setPadding(T.dp(12), T.dp(6), T.dp(12), T.dp(6))
@@ -172,22 +173,6 @@ local function save()
   else
     setStatus("Gagal menyimpan", "danger")
   end
-end
-
-local function checkNow(silent)
-  if not curFile then return true end
-  if not (curFile:find("%.lua$") or curFile:find("%.aly$")) then
-    if not silent then setStatus("Bukan berkas Lua/aly", "inkSubtle") end
-    return true
-  end
-  local ok, line, msg = SC.check(editor.getText().toString(), curFile)
-  if ok then
-    if not silent then setStatus("Sintaks OK", "success") end
-    return true
-  end
-  editor.gotoLine(line)
-  setStatus("Baris " .. line .. ": " .. msg, "danger")
-  return false
 end
 
 local errLine
@@ -295,19 +280,6 @@ local function findDialog()
   end), U.lp(-2, -2, 8, 0, 0, 0))
 end
 
-local function checkAll()
-  save()
-  local errs = SC.checkAll(projPath, P.files(projPath))
-  if #errs == 0 then
-    setStatus("Semua berkas OK", "success")
-    return
-  end
-  local e = errs[1]
-  setStatus(#errs .. " error · " .. e.file .. ":" .. e.line .. "  " .. e.msg, "danger")
-  openFile(projPath .. e.file)
-  editor.gotoLine(e.line)
-end
-
 run = function()
   save()
   if File(projPath .. "java/").isDirectory() then
@@ -339,10 +311,7 @@ end
 moreBtn.onClick = function(v)
   U.popup(moreBtn, {
     { "Berkas baru", newFileDialog, icon = "plus" },
-    { "Simpan", save, icon = "save" },
     { "Format", function() editor.format() end, icon = "format" },
-    { "Cek", function() checkNow(false) end, icon = "check" },
-    { "Cek semua", checkAll, icon = "checkall" },
     { "Cari / ke baris", findDialog, icon = "search" },
   })
 end

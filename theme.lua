@@ -28,6 +28,31 @@ function T.c(name)
   return Color.parseColor(T[name] or name)
 end
 
+-- font by name: regular | medium | semibold | mono (cached, nil if missing)
+local FONTS = {
+  regular  = "Montserrat-Regular.ttf",
+  medium   = "Montserrat-Medium.ttf",
+  semibold = "Montserrat-SemiBold.ttf",
+  mono     = "JetBrainsMono-Regular.ttf",
+}
+local cache = {}
+function T.font(kind)
+  if cache[kind] == nil then
+    local ok, tf = pcall(function()
+      import "android.graphics.Typeface"
+      return Typeface.createFromFile(activity.getLuaDir() .. "/fonts/" .. FONTS[kind])
+    end)
+    cache[kind] = (ok and tf) or false
+  end
+  return cache[kind] or nil
+end
+
+-- apply font to a TextView/EditText, safe if the font is missing
+function T.setFont(v, kind)
+  local tf = T.font(kind)
+  if tf then v.setTypeface(tf) end
+end
+
 -- dp -> px
 function T.dp(v)
   return math.floor(v * activity.getResources().getDisplayMetrics().density + 0.5)

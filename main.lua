@@ -45,7 +45,24 @@ local nav = U.row()
 nav.setGravity(Gravity.CENTER_VERTICAL)
 nav.setPadding(T.dp(20), T.dp(8), T.dp(16), 0)
 nav.setBackgroundColor(T.c(NAV_BG))
-nav.addView(U.text("AndLua ID", 20, "ink", true), LinearLayout.LayoutParams(0, -2, 1))
+-- lgnav.png in the project root replaces the text title; falls back to text if missing
+local logo
+pcall(function()
+  local f = activity.getLuaDir() .. "/lgnav.png"
+  if File(f).exists() then
+    local iv = ImageView(activity)
+    iv.setImageBitmap(luajava.bindClass("android.graphics.BitmapFactory").decodeFile(f))
+    iv.setScaleType(ImageView.ScaleType.FIT_CENTER)
+    U.describe(iv, "AndLua ID")
+    logo = iv
+  end
+end)
+if logo then
+  nav.addView(logo, U.lp(T.dp(34), T.dp(28)))
+  nav.addView(View(activity), LinearLayout.LayoutParams(0, 1, 1))
+else
+  nav.addView(U.text("AndLua ID", 20, "ink", true), LinearLayout.LayoutParams(0, -2, 1))
+end
 content.addView(nav, FrameLayout.LayoutParams(-1, T.dp(NAV_H), Gravity.TOP))
 
 -- fade below the navbar instead of a divider line
@@ -287,24 +304,28 @@ end
 
 ---- delete dialog
 local function confirmDelete(proj)
-  local v = U.col(20)
-  v.addView(U.text("Hapus proyek?", 18, "ink", true))
-  v.addView(U.text((proj.name and proj.name ~= "") and proj.name or proj.dir, 14, "ink", true), U.lp(-1, -2, 0, 10, 0, 0))
-  v.addView(U.text("Semua berkas di dalamnya akan dihapus permanen dan tidak bisa dikembalikan.", 12, "inkSubtle"),
-    U.lp(-1, -2, 0, 6, 0, 0))
+  local name = (proj.name and proj.name ~= "") and proj.name or proj.dir
+  local v = U.col(24)
+  v.addView(U.text("Hapus “" .. name .. "”?", 18, "ink", true))
+  local msg = U.text("Semua berkas akan dihapus permanen dan tidak bisa dikembalikan.", 13, "inkSubtle")
+  pcall(function() msg.setLineSpacing(0, 1.2) end)
+  v.addView(msg, U.lp(-1, -2, 0, 8, 0, 0))
   local err = U.text("", 12, "danger")
   v.addView(err, U.lp(-1, -2, 0, 8, 0, 0))
   local row = U.row()
-  row.setGravity(Gravity.RIGHT)
-  v.addView(row, U.lp(-1, -2, 0, 14, 0, 0))
+  v.addView(row, U.lp(-1, -2, 0, 24, 0, 0))
   local dlg = U.dialog(v)
-  row.addView(U.button("Batal", "secondary", function() dlg.dismiss() end))
-  row.addView(U.button("Hapus", "danger", function()
+  -- equal-width buttons: safe action on the left, destructive on the right
+  row.addView(U.button("Batal", "secondary", function() dlg.dismiss() end), LinearLayout.LayoutParams(0, -2, 1))
+  local del = U.button("Hapus", "danger", function()
     local ok, why = P.delete(proj)
     if not ok then err.setText(why) return end
     dlg.dismiss()
     refresh()
-  end), U.lp(-2, -2, 8, 0, 0, 0))
+  end)
+  local dlp = LinearLayout.LayoutParams(0, -2, 1)
+  dlp.setMargins(T.dp(10), 0, 0, 0)
+  row.addView(del, dlp)
 end
 
 ---- icon
@@ -394,9 +415,9 @@ local EDGE_W  = T.dp(1)  -- left edge stroke
 local WRAP_W  = PANEL_W + EDGE_W
 local menuOpen = false
 
--- blur needs Android 12+ (API 31); below that, use a near-solid dark panel
-local CAN_BLUR = luajava.bindClass("android.os.Build$VERSION").SDK_INT >= 31
-local GLASS      = CAN_BLUR and "#26FFFFFF" or "#F5141516"
+-- solid panel; set CAN_BLUR = true (Android 12+) to bring back the glass look
+local CAN_BLUR = false
+local GLASS      = CAN_BLUR and "#26FFFFFF" or "#FF141516"
 local BLUR_R = 24
 
 local function setBlur(r)
@@ -480,7 +501,7 @@ burger.onClick = function()
   if menuOpen then closeMenu() else openMenu() end
 end
 
-local menuLabel = U.text("MENU", 11, "inkTertiary", true)
+local menuLabel = U.text("MENU", 22, "ink", true)
 menuLabel.setPadding(T.dp(20), 0, T.dp(20), 0)
 menuLabel.setGravity(Gravity.CENTER_VERTICAL)
 panel.addView(menuLabel, U.lp(-1, T.dp(40), 0, 0, 0, 8))
@@ -506,7 +527,21 @@ local MS = View.MeasureSpec
 -- shared by the Developer dialog and the Credits height measurement
 local function buildDeveloper(onClose)
   local D = CRED.developer
-  local v = U.col(20)
+
+  -- optional banner.jpg / banner.png in the project root (glass blur is baked into the image)
+  local banner
+  pcall(function()
+    for _, name in ipairs({ "banner.jpg", "banner.png" }) do
+      local path = activity.getLuaDir() .. "/" .. name
+      if luajava.bindClass("java.io.File")(path).exists() then
+        banner = luajava.bindClass("android.graphics.BitmapFactory").decodeFile(path)
+        if banner then break end
+      end
+    end
+  end)
+
+  local v = U.col()
+  v.setPadding(T.dp(20), T.dp(20), T.dp(20), 0)
   v.setGravity(Gravity.CENTER_HORIZONTAL)
 
   local photo = U.avatar(activity.getLuaDir() .. "/avatar.png", 84)
@@ -527,11 +562,11 @@ local function buildDeveloper(onClose)
   local nameRow = U.row()
   nameRow.setGravity(Gravity.CENTER)
   nameRow.addView(U.text(D.name, 22, "ink", true), U.lp(-2, -2))
-  nameRow.addView(U.verified("ink", "surface1"), U.lp(T.dp(20), T.dp(20), 6, 2, 0, 0))
+  nameRow.addView(U.verified("ink", "surface1"), U.lp(T.dp(20), T.dp(20), 6, 0, 0, 1))
   v.addView(nameRow, U.lp(-1, -2, 0, 14, 0, 0))
 
   if D.alias then
-    local al = U.text("Also known as " .. D.alias, 12, "inkSubtle")
+    local al = U.text("Also known as " .. D.alias, 12, banner and "inkMuted" or "inkSubtle")
     al.setGravity(Gravity.CENTER)
     v.addView(al, U.lp(-1, -2, 0, 2, 0, 0))
   end
@@ -539,7 +574,7 @@ local function buildDeveloper(onClose)
   local function pill(txt)
     local t = U.text(txt, 11, "inkMuted")
     t.setPadding(T.dp(10), T.dp(4), T.dp(10), T.dp(4))
-    t.setBackground(U.rect("surface2", T.r.pill, "hairline"))
+    t.setBackground(U.rect(nil, T.r.pill, "#FFFFFF"))
     return t
   end
   local rolesBox = U.col()
@@ -555,9 +590,43 @@ local function buildDeveloper(onClose)
   rolesBox.addView(rowB, U.lp(-2, -2, 0, 6, 0, 0))
   v.addView(rolesBox, U.lp(-2, -2, 0, 12, 0, 0))
 
+  -- banner card: everything sits on the image, social links are icons only
+  if banner then
+    local H = math.floor(DLG_W * banner.getHeight() / banner.getWidth())
+    local card = FrameLayout(activity)
+    pcall(function()
+      card.setBackground(U.rect("surface1", T.r.xl))
+      card.setClipToOutline(true)
+      local border = U.rect(nil, T.r.xl)
+      border.setStroke(T.dp(2), T.c("#5F636B"))
+      card.setForeground(border)
+    end)
+    local iv = ImageView(activity)
+    iv.setImageBitmap(banner)
+    iv.setScaleType(ImageView.ScaleType.CENTER_CROP)
+    card.addView(iv, FrameLayout.LayoutParams(-1, -1))
+
+    local icons = U.row()
+    icons.setGravity(Gravity.CENTER)
+    for _, l in ipairs(D.links) do
+      icons.addView(U.iconButton(l.kind, function() openUrl(l.url) end, "ink", l.title, 18), U.lp(T.dp(36), T.dp(36)))
+    end
+    v.addView(icons, U.lp(-2, -2, 0, 8, 0, 0))
+    v.setPadding(T.dp(20), T.dp(20), T.dp(20), T.dp(12))
+    card.addView(v, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+
+    local outer = U.col()
+    outer.addView(card, LinearLayout.LayoutParams(-1, H))
+    return outer, true
+  end
+
+  -- fallback without banner: link rows and Close button
+  local body = U.col()
+  body.setPadding(T.dp(20), 0, T.dp(20), T.dp(20))
+
   local line = View(activity)
   line.setBackgroundColor(T.c("hairline"))
-  v.addView(line, U.lp(-1, T.dp(1), 0, 20, 0, 12))
+  body.addView(line, U.lp(-1, T.dp(1), 0, 20, 0, 12))
 
   for _, l in ipairs(D.links) do
     local row = U.row()
@@ -573,34 +642,36 @@ local function buildDeveloper(onClose)
     row.addView(tx, tlp)
     row.addView(U.text("›", 20, "inkTertiary"), U.lp(-2, -2))
     row.onClick = function() openUrl(l.url) end
-    v.addView(row, U.lp(-1, -2, 0, 8, 0, 0))
+    body.addView(row, U.lp(-1, -2, 0, 8, 0, 0))
   end
 
   local brow = U.row()
   brow.setGravity(Gravity.RIGHT)
-  v.addView(brow, U.lp(-1, -2, 0, 18, 0, 0))
+  body.addView(brow, U.lp(-1, -2, 0, 18, 0, 0))
   brow.addView(U.button("Close", "secondary", function() if onClose then onClose() end end))
-  return v
+
+  local outer = U.col()
+  outer.addView(v, LinearLayout.LayoutParams(-1, -2))
+  outer.addView(body, LinearLayout.LayoutParams(-1, -2))
+  return outer
 end
 
-local devHeight
-local function getDevHeight()
-  if devHeight then return devHeight end
+-- each sticky dialog sizes itself: content height, capped to the screen
+local function ownHeight(view)
+  local maxH = DM.heightPixels - T.dp(96)
   local ok, h = pcall(function()
-    local v = buildDeveloper(nil)
-    v.measure(MS.makeMeasureSpec(DLG_W, MS.EXACTLY), MS.makeMeasureSpec(0, MS.UNSPECIFIED))
-    return v.getMeasuredHeight()
+    view.measure(MS.makeMeasureSpec(DLG_W, MS.EXACTLY), MS.makeMeasureSpec(maxH, MS.AT_MOST))
+    return view.getMeasuredHeight()
   end)
-  devHeight = math.min((ok and h) or T.dp(520), DM.heightPixels - T.dp(96))
-  return devHeight
+  return math.min((ok and h) or maxH, maxH)
 end
 
 local function developerDialog()
   local dlg
-  local v = buildDeveloper(function() dlg.dismiss() end)
+  local v, bare = buildDeveloper(function() dlg.dismiss() end)
   local scroller = ScrollView(activity)
   scroller.addView(v)
-  dlg = U.dialog(scroller)
+  dlg = U.dialog(scroller, false, bare, 0.75)
   pcall(function() dlg.getWindow().setLayout(DLG_W, -2) end)
 end
 
@@ -637,8 +708,9 @@ local function stickyDialog(title, sub, fillBody)
   wrap.addView(foot, U.lp(-1, -2))
   outer.addView(wrap, U.lp(-1, -2))
 
-  dlg = U.dialog(outer)
-  pcall(function() dlg.getWindow().setLayout(DLG_W, getDevHeight()) end)
+  local h = ownHeight(outer)
+  dlg = U.dialog(outer, false, false, 0.75)
+  pcall(function() dlg.getWindow().setLayout(DLG_W, h) end)
 end
 
 local function creditsDialog()
