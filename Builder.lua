@@ -251,21 +251,30 @@ local function binapk(luapath, apkpath)
     replace[v] = true
   end
 
+  -- Module sources: the app's module dir (MdDir) first, then the lualib/ folder
+  -- shipped with this app, so a module is never missing from a built APK.
   local mdp = activity.Application.MdDir
-  local function getmodule(dir)
-    local mds = File(activity.Application.MdDir .. dir).listFiles()
-    mds = luajava.astable(mds)
+  local libdir = activity.getLuaDir() .. "/lualib"
+  local modsrc = {}
+  local function getmodule(base, dir)
+    local list = File(base .. dir).listFiles()
+    if not list then return end
+    local mds = luajava.astable(list)
     for k, v in ipairs(mds) do
-      if mds[k].isDirectory() then
-        getmodule(dir .. mds[k].Name .. "/")
+      if v.isDirectory() then
+        getmodule(base, dir .. v.Name .. "/")
        else
-        mds[k] = "lua" .. dir .. mds[k].Name
-        replace[mds[k]] = true
+        local lp = "lua" .. dir .. v.Name
+        if not modsrc[lp] then
+          modsrc[lp] = base .. dir .. v.Name
+          replace[lp] = true
+        end
       end
     end
   end
 
-  getmodule("/")
+  getmodule(mdp, "/")
+  getmodule(libdir, "/")
 
   local function checklib(path)
     if checked[path] then
@@ -299,9 +308,9 @@ local function binapk(luapath, apkpath)
         replace[cp] = false
       end
       if replace[lp] then
-        checklib(mdp .. "/" .. m .. ".lua")
+        checklib(modsrc[lp])
         replace[lp] = false
-        lualib[lp] = mdp .. "/" .. m .. ".lua"
+        lualib[lp] = modsrc[lp]
       end
     end
     for m, n in s:gmatch("import *%(? *\"([%w_]+)%.?([%w_]*)") do
@@ -327,9 +336,9 @@ local function binapk(luapath, apkpath)
         replace[cp] = false
       end
       if replace[lp] then
-        checklib(mdp .. "/" .. m .. ".lua")
+        checklib(modsrc[lp])
         replace[lp] = false
-        lualib[lp] = mdp .. "/" .. m .. ".lua"
+        lualib[lp] = modsrc[lp]
       end
     end
   end
@@ -528,6 +537,16 @@ local function binapk(luapath, apkpath)
     end
    else
     return "error"
+  end
+
+  -- import.lua loads these three modules on its own, so the source scan misses them.
+  if lualib["lua/import.lua"] then
+    for _, m in ipairs({"loadlayout", "loadbitmap", "loadmenu"}) do
+      local lp = "lua/" .. m .. ".lua"
+      if not lualib[lp] and modsrc[lp] then
+        lualib[lp] = modsrc[lp]
+      end
+    end
   end
 
   for name, v in pairs(lualib) do
